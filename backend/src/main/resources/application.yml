@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: login-sandbox-backend
+  datasource:
+    url: jdbc:h2:mem:sandbox;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# 샌드박스 전용 설정: 프론트(Vite dev server) origin 패턴
+# 포트가 5173→5174 로 바뀌어도 되도록 localhost 임의 포트 허용
+app:
+  cors:
+    allowed-origin: "http://localhost:*"
+
+server:
+  port: 9090
