@@ -132,7 +132,9 @@ curl -b cookies.txt http://localhost:9090/me      # {"code":"unauthenticated", .
    `apiClient` 가 이 옵션으로 쿠키를 요청에 실어 보낸다. 이게 빠지면 로그인해도 매 요청이 비로그인 취급된다.
 4. **CORS + 쿠키의 함정** (실제로 겪은 이슈)
    자격증명(쿠키)을 주고받을 땐 CORS `allowedOrigins` 에 `"*"` 를 쓸 수 없고 **명시적 origin**이 필요하며 `allowCredentials(true)` 여야 한다. 프론트 포트가 5173→5174로 바뀌면 origin이 달라져 **403**이 난다. (샌드박스는 `http://localhost:*` 패턴으로 허용)
-5. **로그인 여부는 서버에 물어본다**
+5. **CSRF 방어 (Double Submit Cookie)**
+   세션+쿠키는 브라우저가 쿠키를 자동 첨부하므로 위조 요청(CSRF)에 노출된다. 방어책: 서버가 JS로 읽을 수 있는 `XSRF-TOKEN` 쿠키를 발급 → 프론트가 상태 변경 요청에 `X-XSRF-TOKEN` 헤더로 되보냄 → 서버가 쿠키 토큰과 헤더 토큰을 대조. 쿠키는 자동으로 실리지만 **헤더는 남의 사이트가 못 채우므로** 위조가 막힌다. 토큰 없이 POST 하면 **403**.
+6. **로그인 여부는 서버에 물어본다**
    토큰을 JS에 저장하지 않으므로, 프론트는 앱 로드 시 `GET /me` 로 세션 유효성을 확인한다(`AuthContext`).
 
 ---
@@ -140,7 +142,7 @@ curl -b cookies.txt http://localhost:9090/me      # {"code":"unauthenticated", .
 ## 6. 주의사항 (샌드박스 특성)
 
 - **H2 인메모리** — 백엔드를 재시작하면 가입한 계정·기록이 **모두 사라집니다**(의도된 동작). 영속화하려면 `application.yml` 의 `spring.datasource.url` 을 파일 H2(`jdbc:h2:file:./data/sandbox`)로, `ddl-auto` 를 `update` 로 바꾸세요.
-- **CSRF는 현재 비활성화** (`SecurityConfig` 의 `csrf.disable()`) — happy-path 검증용 1단계 상태입니다. 다음 단계로 `CookieCsrfTokenRepository` 적용 연습이 남아 있습니다. **본 프로젝트 이식 전 반드시 CSRF 정책을 정해야 합니다.**
+- **CSRF는 활성화됨** (2단계 완료) — `SecurityConfig` 가 `CookieCsrfTokenRepository` 로 `XSRF-TOKEN` 쿠키를 발급하고, 상태 변경 요청(POST/PUT/DELETE)은 `X-XSRF-TOKEN` 헤더로 그 값을 되보내야 통과합니다. 프론트 `apiClient` 가 이 헤더를 자동으로 붙입니다. (GET 등 안전한 메서드·H2 콘솔은 예외)
 - 포트: 백엔드 9090 고정, 프론트 5173(사용 중이면 자동 변경).
 
 ---

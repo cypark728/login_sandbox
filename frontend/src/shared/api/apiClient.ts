@@ -25,12 +25,31 @@ export class ApiError extends Error {
 
 const API_BASE_PATH = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
+// 쿠키에서 특정 값을 읽는다. XSRF-TOKEN 은 HttpOnly 가 아니라서 JS로 읽을 수 있다.
+function readCookie(name: string): string | undefined {
+  const match = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.split('=')[1]) : undefined;
+}
+
 function createHeaders(init?: RequestInit): Headers {
   const headers = new Headers(init?.headers);
   if (init?.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
   headers.set('Accept', 'application/json');
+
+  // CSRF: 상태 변경 요청(GET/HEAD 외)에는 XSRF-TOKEN 쿠키 값을 헤더로 되보낸다.
+  // 쿠키는 브라우저가 자동으로 붙이지만, 이 '헤더'는 우리가 직접 넣어야 하고
+  // 남의 사이트는 이 값을 알 수 없으므로 위조 요청이 막힌다.
+  const method = (init?.method ?? 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') {
+    const csrfToken = readCookie('XSRF-TOKEN');
+    if (csrfToken) {
+      headers.set('X-XSRF-TOKEN', csrfToken);
+    }
+  }
   return headers;
 }
 
